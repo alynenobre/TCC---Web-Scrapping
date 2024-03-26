@@ -10,8 +10,8 @@ from dux_datalake import DuxDatalake
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from dux_modules.webscraping.bronze.browser import BrowserSoucer
-import dux_modules.webscraping.bronze.constants  as const
+from marketing_place.browser import BrowserSoucer
+import marketing_place.constants  as const
 
 
 class MercadoLivre(BrowserSoucer):
