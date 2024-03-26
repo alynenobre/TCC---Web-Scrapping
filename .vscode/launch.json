@@ -14,7 +14,7 @@
         },
         {
             "name": "INSTAGRAM",
-            "module": "rede_social.Instagram",
+            "module": "webscrapping.rede_social.Instagram",
             "args": [],
             "request": "launch",
             "type": "debugpy",
