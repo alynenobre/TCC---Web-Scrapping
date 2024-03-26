@@ -1,0 +1,3 @@
+pip install psycopg2
+pip install --no-cache-dir --trusted-host pypi.python.org \
+                selenium webdriver-manager 

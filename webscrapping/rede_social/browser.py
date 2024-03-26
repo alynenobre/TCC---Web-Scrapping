@@ -14,17 +14,8 @@ class Browser():
     def open_browser(self):
 
         print(self.api_name)
-
-        # Especifique o caminho para o executável do Chromedriver baixado
-        chromedriver_path = r'C:\Users\alyne.custodio\Downloads\chromedriver-win64\chromedriver-win64\chromedriver.exe'
-
-        # Configura as opções do navegador
-        service = Service(chromedriver_path)
-
-
         # Configuracoes do navegador
-        #chrome_options = webdriver.ChromeOptions()
-        chrome_options = webdriver.Chrome(executable_path=chromedriver_path, options=chrome_options)
+        chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--log-level=3') # Execute o Chrome no modo headless, se necessário
 
 
