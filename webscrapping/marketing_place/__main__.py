@@ -1,10 +1,14 @@
 # PIP
 import os
+import sys
 from random import shuffle
 import pandas as pd
 from typing import Union, Dict, List, Tuple, Callable
 from datetime import datetime
 import json
+sys.path.append(r'C:\Users\alyne.custodio\Documents\GitHub\TCC---Web-Scrapping\webscrapping')
+
+
 
 # Dux
 from marketing_place.mercadolivre import MercadoLivre
@@ -17,6 +21,7 @@ if __name__ == '__main__':
     # Criando uma instância de MercadoLivre
     mercado_livre = MercadoLivre()
     amazon = Amazon()
+    banco = banco.Banco()
     # Connect with the DuxDataLake
     
 

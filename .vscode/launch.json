@@ -20,6 +20,14 @@
             "type": "debugpy",
             "justMyCode": true
         },
+        {
+            "name": "AMAZON MERCADOLIVRE",
+            "module": "webscrapping.marketing_place",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
     ]
 
 }
