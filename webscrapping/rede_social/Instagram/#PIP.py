@@ -7,7 +7,6 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
 import time 
 import datetime
-import re
 
 #Pacotes
 from rede_social.browser import Browser
@@ -53,32 +52,21 @@ class Instagram():
             
             elements_xpath1 = self.browser.find_elements(By.CSS_SELECTOR, 'article > div > div:nth-child(2)')
             
-            base={}
             for post in elements_xpath1:
-                img_element = post.find_element(By.CLASS_NAME, '_aagv')
-                image_url =  img_element.get_attribute('src')
-
-                # Encontrando o elemento pai do link
-                #parent_element = post.find_element(By.XPATH, '//*[@id="mount_0_0_UN"]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/article/div/div[2]/div/div[1]/div[1]/a')
+                image_url = post.find_element(By.CSS_SELECTOR, 'img').get_attribute("src")
+                try:
+                    # Clique no post para abrir mais detalhes
+                    post.click()
+                    time.sleep(2)  # Aguarde a página carregar após clicar no post
+                    
+                    # Extrair o número de curtidas do post aberto
+                    likes_element = self.browser.find_element(By.CSS_SELECTOR, 'body > div.x1n2onr6.xzkaem6 > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div.xb88tzc.xw2csxc.x1odjw0f.x5fp0pe.x1qjc9v5.xjbqb8w.x1lcm9me.x1yr5g0i.xrt01vj.x10y3i5r.xr1yuqi.xkrivgy.x4ii5y1.x1gryazu.x15h9jz8.x47corl.xh8yej3.xir0mxb.x1juhsu6 > div > article > div > div.x1qjc9v5.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x78zum5.xdt5ytf.x1iyjqo2.x5wqa0o.xln7xf2.xk390pu.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x65f84u.x1vq45kp.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x1n2onr6.x11njtxf > div > div > div.x78zum5.xdt5ytf.x1q2y9iw.x1n2onr6.xh8yej3.x9f619.x1iyjqo2.x18l3tf1.x26u7qi.xy80clv.xexx8yu.x4uap5.x18d9i69.xkhd6sd > section.x12nagc.x182iqb8.x1pi30zi.x1swvt13 > div > div > span > a > span > span')
+                    likes = likes_element.text
+                except NoSuchElementException:
+                    # Se não puder encontrar o número de curtidas, defina-o como "N/A" ou outro valor padrão
+                    likes = "N/A"
                 
-                # Encontrando o link dentro do elemento pai
-                link_element = post.find_element(By.CLASS_NAME, '_a6hd')
-                url = link_element.get_attribute('href')
-
-                
-                # Clique no post para abrir mais detalhes
-                self.browser.get(f'{url}')
-                time.sleep(2)  # Aguarde a página carregar após clicar no post
-                
-                # Verifique diretamente um seletor mais simples
-                likes_element = self.browser.find_element(By.XPATH, "//*[contains(text(),'curtidas')]")
-                likes = likes_element.text
-
-                # Extraindo apenas os dígitos
-                likes = re.findall(r'\d+', likes)
-                likes = likes[0]
-
-                # Voltar para a página anterior 
+                # Voltar para a página anterior
                 self.browser.execute_script("window.history.go(-1)")
                 time.sleep(2)  # Aguarde a página voltar antes de continuar
 
@@ -86,7 +74,6 @@ class Instagram():
                     "hashtag": hashtag,
                     "image_url": image_url,
                     "likes": likes,
-                    "url": url, 
                     "data_execution": datetime.datetime.now()
                 })
 

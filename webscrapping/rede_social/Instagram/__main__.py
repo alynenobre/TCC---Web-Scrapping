@@ -29,7 +29,7 @@ if __name__ == "__main__":
     CREATE TABLE IF NOT EXISTS public.instagram (
         id SERIAL PRIMARY KEY,
         hashtag VARCHAR(255) NOT NULL,
-        image_url TEXT NOT NULL,
+        url TEXT NOT NULL,
         likes TEXT NOT NULL,
         data_execution TIMESTAMP NOT NULL
     );
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # Inserindo os dados no banco de dados
     for i in df.index:
         sql = """
-        INSERT INTO public.instagram (hashtag, image_url, likes, data_execution) 
+        INSERT INTO public.instagram (hashtag, likes, data_execution, url) 
         VALUES ('%s', '%s', '%s', '%s');
-        """ % (df['hashtag'][i], df['image_url'][i], df['likes'][i], df['data_execution'][i])
+        """ % (df['hashtag'][i], df['likes'][i], df['data_execution'][i], df['url'][i])
         conexao_banco.inserir_db(sql)
