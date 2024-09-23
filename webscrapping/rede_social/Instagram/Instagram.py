@@ -47,7 +47,7 @@ class Instagram():
         self.browser.get(f'https://www.instagram.com/tags/{hashtag}')
         post_data = []
         
-        for _ in range(5):
+        for _ in range(10):
             self.browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(2)
             

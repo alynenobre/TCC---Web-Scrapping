@@ -21,6 +21,14 @@
             "justMyCode": true
         },
         {
+            "name": "INSTAGRAM V2",
+            "module": "webscrapping.rede_social.testes",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+        {
             "name": "AMAZON MERCADOLIVRE",
             "module": "webscrapping.marketing_place",
             "args": [],
