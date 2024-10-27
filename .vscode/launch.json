@@ -36,6 +36,23 @@
             "type": "debugpy",
             "justMyCode": true
         },
+        {
+            "name": "INSTAGRAM V3",
+            "module": "webscrapping.rede_social.teste2",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+
+        {
+            "name": "BUSCA POST INSTAGRAM",
+            "module": "busca",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
     ]
 
 }

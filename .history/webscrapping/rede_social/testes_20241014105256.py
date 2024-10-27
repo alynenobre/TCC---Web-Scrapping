@@ -44,7 +44,7 @@ password_input.send_keys(Keys.RETURN)
 sleep(5)
 
 # Acessando uma publicação específica
-driver.get('https://www.instagram.com/p/Cwva6UixMpH/')
+driver.get('https://www.instagram.com/p/DA4ASk7yflg/')
 sleep(3)
 
 # Carregando mais comentários (se houver)
@@ -57,7 +57,7 @@ while True:
         break
 
 # Coletando os comentários
-comments = driver.find_elements(By.XPATH, '//span[contains(@class, "x1lliihq x1plvlek xryxfnj x1n2onr6 x1ji0vk5 x18bv5gf x193iq5w xeuugli x1fj9vlw x13faqbe x1vvkbs x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x x1i0vuye xvs91rp xo1l8bm x5n08af x10wh9bi x1wdrske x8viiok x18hxmgj")]')
+comments = driver.find_elements(By.XPATH, '//span[contains(@class, "_ap3a _aaco _aacu _aacx _aad7 _aade")]')
 
 #<span class="_ap3a _aaco _aacu _aacx _aad7 _aade" dir="auto">Muitas expectativas criadas ❤️😍</span>
 # Inicializando a lista para armazenar os dados dos posts
