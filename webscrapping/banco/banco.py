@@ -1,5 +1,5 @@
 import psycopg2
-import rede_social.contantes as CONST
+import webscrapping.rede_social.contantes as CONST
 
 class Banco:
     def __init__(self):
@@ -31,12 +31,15 @@ class Banco:
             finally:
                 con.close()
 
-    def inserir_db(self, sql):
+    def inserir_db(self, sql, valores=None):
         con = self.conecta_banco(self.database)
         if con:
             cur = con.cursor()
             try:
-                cur.execute(sql)
+                if valores:
+                    cur.execute(sql, valores)
+                else:
+                    cur.execute(sql)
                 con.commit()
             except (psycopg2.Error, UnicodeDecodeError) as e:
                 print("Erro ao inserir dados no banco de dados:", e)

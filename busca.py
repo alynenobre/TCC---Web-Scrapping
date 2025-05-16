@@ -50,7 +50,7 @@ class Instagram:
     
     def login(self):
         # Configurando o WebDriver
-        service = Service(r'C:\Users\alyne.custodio\Downloads\chromedriver-win64 (3)\chromedriver-win64\chromedriver.exe')
+        service = Service(r'C:\Users\alyne.custodio\Documents\GitHub\TCC---Web-Scrapping\chromedriver.exe')
         self.driver = webdriver.Chrome(service=service)
         self.randwait()
         self.driver.get('https://www.instagram.com')

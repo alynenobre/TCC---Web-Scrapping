@@ -3,10 +3,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from time import sleep
-import json
+import json, re
 import datetime
-import re
+import pandas as pd
 from transformers import pipeline
+from webscrapping.banco import banco
 
 # Dicionário simples de substituição de emojis
 emoji_dict = {
@@ -32,88 +33,142 @@ class Instagram:
         self.driver = None
 
     def login(self):
-        # Configurando o WebDriver
-        service = Service(r'C:\Users\alyne.custodio\Downloads\chromedriver-win64 (3)\chromedriver-win64\chromedriver.exe')
+        service = Service(r'C:\Users\alyne.custodio\Documents\GitHub\TCC---Web-Scrapping\chromedriver.exe')
         self.driver = webdriver.Chrome(service=service)
         self.driver.get('https://www.instagram.com')
         sleep(2)
 
-        # Inserindo nome de usuário e senha
         username_input = self.driver.find_element(By.NAME, 'username')
         password_input = self.driver.find_element(By.NAME, 'password')
-
         username_input.send_keys(self.username)
         password_input.send_keys(self.password)
         password_input.send_keys(Keys.RETURN)
-        sleep(15)
+        sleep(30)
 
     def collect_comments(self, post_url: str):
-        # Acessando uma publicação específica
         self.driver.get(post_url)
-        sleep(3)
+        sleep(5)
 
-        # Carregando mais comentários (se houver)
         while True:
             try:
-                load_more_comments = self.driver.find_element(By.XPATH, '//span[contains(text(), "Ver todos os comentários")]')
-                load_more_comments.click()
+                load_more = self.driver.find_element(By.XPATH, '//span[contains(text(), "Ver todos os comentários")]')
+                load_more.click()
                 sleep(2)
             except:
                 break
 
-        # Coletando os comentários
-        comments = self.driver.find_elements(By.XPATH, '//span[contains(@class, "_ap3a _aaco _aacu _aacx _aad7 _aade")]')
+        post_data = []
 
+        comentarios_divs = self.driver.find_elements(By.XPATH, '//span[contains(@class, "x1lliihq x1plvlek xryxfnj x1n2onr6 x1ji0vk5 x18bv5gf x193iq5w xeuugli x1fj9vlw x13faqbe x1vvkbs x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x x1i0vuye xvs91rp xo1l8bm x5n08af x10wh9bi x1wdrske x8viiok x18hxmgj")]')
         # Inicializando a lista para armazenar os dados dos comentários
         post_data = []
 
         # Iterando sobre os comentários capturados
-        for comment in comments:
+        for comment in comentarios_divs:
             try:
                 comment_text = comment.text
                 comment_html = comment.get_attribute("outerHTML")  # Captura o HTML do elemento
                 processed_text = replace_emojis(comment_text)
                 result = sentiment_analysis(processed_text)[0]
-                
-                post_data.append({
-                    "comentário": comment_text,
-                    "html": comment_html,  # Adiciona o HTML do comentário
-                    "sentimento": {
-                        "label": result['label'],
-                        "score": result['score']
-                    },
-                    "data_recolhimento": datetime.datetime.now().isoformat()
-                })
+                try:
+                    nome = comment.find_element(By.XPATH, ".//a[starts-with(@href, '/') and not(contains(@href, '/p/'))]").text
+                except:
+                    pass
+                if nome and comment_text and nome != comment_text:
+                    try:
+                        curtida_span = comment.find_element(By.XPATH, ".//preceding::span[contains(text(),'curtida')][1]")
+                        numero_de_curtida = int(re.findall(r'\d+', curtida_span.text)[0]) if re.findall(r'\d+', curtida_span.text) else 0
+                    except:
+                        numero_de_curtida = 0
+
+                    comment_html = comment.get_attribute("outerHTML")
+                    processed_text = replace_emojis(comment_text)
+                    result = sentiment_analysis(processed_text)[0]
+
+                    post_data.append({
+                        "comentário": comment_text,
+                        "html": comment_html,
+                        "perfil": nome,
+                        "likes": numero_de_curtida,
+                        "sentimento": {
+                            "label": result['label'],
+                            "score": result['score']
+                        },
+                        "data_recolhimento": datetime.datetime.now().isoformat()
+                    })
             except Exception as e:
                 print(f"Erro ao processar o comentário: {e}")
                 continue
+        
 
-        # Carregar dados existentes do JSON, se o arquivo já existir
         try:
             with open('instagram_comments.json', 'r', encoding='utf-8') as f:
                 existing_data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            existing_data = []  # Se o arquivo não existir ou estiver vazio, inicia com uma lista vazia
+            existing_data = []
 
-        # Adicionar novos dados aos dados existentes
         existing_data.extend(post_data)
 
-        # Salvando os dados atualizados em um arquivo JSON
-        with open('instagram_comments.json', 'w', encoding='utf-8') as f:
+        with open('instagram_comments_2.json', 'w', encoding='utf-8') as f:
             json.dump(existing_data, f, indent=4, ensure_ascii=False)
 
+        return existing_data
+
     def close(self):
-        # Fechando o navegador
         if self.driver:
             self.driver.quit()
 
 if __name__ == "__main__":
-    # Substitua pelos seus dados de login
     username = 'tcc4261@gmail.com'
     password = '24450479@Ju'
-    post_url = 'https://www.instagram.com/p/DBZHjWyRUb8'  # URL do post a ser analisado
+    post_url = 'https://www.instagram.com/p/DI1-rOrx7Tl/'
 
     instagram_bot = Instagram(username, password)
     instagram_bot.login()
-    instagram_bot.collect_comments(post_url)
+    resultado = instagram_bot.collect_comments(post_url)
+
+    df = pd.DataFrame(resultado)
+    for col in df.columns:
+        df[col] = df[col].apply(str)
+
+    df = pd.DataFrame(resultado)
+    df['likes'] = df['likes'].astype(int)
+
+    conexao_banco = banco.Banco()
+    conexao_banco.conecta_banco(database="rede_social")
+
+    sql_create_table = """
+    CREATE TABLE IF NOT EXISTS public.instagram_analise_nl (
+        html TEXT PRIMARY KEY,
+        sentimento TEXT NOT NULL,
+        comentario TEXT NOT NULL,
+        perfil TEXT NOT NULL,
+        likes INT NOT NULL,
+        data_recolhimento TIMESTAMP NOT NULL
+    );
+    """
+    conexao_banco.criar_drop_db(sql_create_table)
+
+    sql = """
+    INSERT INTO public.instagram_analise_nl (html, sentimento, comentario, perfil, likes, data_recolhimento)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    ON CONFLICT (html) DO NOTHING;
+    """
+
+    for i in df.index:
+        sentimento_dict = df['sentimento'][i]
+        sentimento_str = f"sentimento: {sentimento_dict}".replace("'", "")
+        valores = (
+            df['html'][i],
+            sentimento_str,
+            df['comentário'][i],
+            df['perfil'][i],
+            int(df['likes'][i]),
+            df['data_recolhimento'][i]
+        )
+        try:
+            conexao_banco.inserir_db(sql, valores)
+        except Exception as e:
+            print(f"Erro ao inserir dados no banco de dados: {e}")
+
     instagram_bot.close()
