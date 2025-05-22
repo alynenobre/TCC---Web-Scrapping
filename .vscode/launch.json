@@ -53,6 +53,14 @@
             "type": "debugpy",
             "justMyCode": true
         },
+        {
+            "name": "ajuda",
+            "module": "webscrapping.rede_social.ajuda",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        }
     ]
 
 }

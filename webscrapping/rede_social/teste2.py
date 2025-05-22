@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from time import sleep
+import random
 import json, re
 import datetime
 import pandas as pd
@@ -56,59 +57,60 @@ class Instagram:
                 sleep(2)
             except:
                 break
-
-        post_data = []
-
-        comentarios_divs = self.driver.find_elements(By.XPATH, '//span[contains(@class, "x1lliihq x1plvlek xryxfnj x1n2onr6 x1ji0vk5 x18bv5gf x193iq5w xeuugli x1fj9vlw x13faqbe x1vvkbs x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x x1i0vuye xvs91rp xo1l8bm x5n08af x10wh9bi x1wdrske x8viiok x18hxmgj")]')
         # Inicializando a lista para armazenar os dados dos comentários
         post_data = []
+        scrollable_div = self.driver.find_element(By.XPATH, '//div[@class="x5yr21d xw2csxc x1odjw0f x1n2onr6"]')
+        for _ in range(50):  # ajuste quantas vezes quiser rolar
+            comentarios_divs = self.driver.find_elements(By.XPATH, '//span[contains(@class, "x1lliihq x1plvlek xryxfnj x1n2onr6 x1ji0vk5 x18bv5gf x193iq5w xeuugli x1fj9vlw x13faqbe x1vvkbs x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x x1i0vuye xvs91rp xo1l8bm x5n08af x10wh9bi x1wdrske x8viiok x18hxmgj")]')
 
-        # Iterando sobre os comentários capturados
-        for comment in comentarios_divs:
-            try:
-                comment_text = comment.text
-                comment_html = comment.get_attribute("outerHTML")  # Captura o HTML do elemento
-                processed_text = replace_emojis(comment_text)
-                result = sentiment_analysis(processed_text)[0]
+            # Iterando sobre os comentários capturados
+            for comment in comentarios_divs:
                 try:
-                    nome = comment.find_element(By.XPATH, ".//a[starts-with(@href, '/') and not(contains(@href, '/p/'))]").text
-                except:
-                    pass
-                if nome and comment_text and nome != comment_text:
-                    try:
-                        curtida_span = comment.find_element(By.XPATH, ".//preceding::span[contains(text(),'curtida')][1]")
-                        numero_de_curtida = int(re.findall(r'\d+', curtida_span.text)[0]) if re.findall(r'\d+', curtida_span.text) else 0
-                    except:
-                        numero_de_curtida = 0
-
-                    comment_html = comment.get_attribute("outerHTML")
+                    comment_text = comment.text
+                    comment_html = comment.get_attribute("outerHTML")  # Captura o HTML do elemento
                     processed_text = replace_emojis(comment_text)
                     result = sentiment_analysis(processed_text)[0]
+                    try:
+                        nome = comment.find_element(By.XPATH, ".//a[starts-with(@href, '/') and not(contains(@href, '/p/'))]").text
+                    except:
+                        pass
+                    if nome and comment_text and nome != comment_text:
+                        try:
+                            curtida_span = comment.find_element(By.XPATH, ".//preceding::span[contains(text(),'curtida')][1]")
+                            numero_de_curtida = int(re.findall(r'\d+', curtida_span.text)[0]) if re.findall(r'\d+', curtida_span.text) else 0
+                        except:
+                            numero_de_curtida = 0
 
-                    post_data.append({
-                        "comentário": comment_text,
-                        "html": comment_html,
-                        "perfil": nome,
-                        "likes": numero_de_curtida,
-                        "sentimento": {
-                            "label": result['label'],
-                            "score": result['score']
-                        },
-                        "data_recolhimento": datetime.datetime.now().isoformat()
-                    })
-            except Exception as e:
-                print(f"Erro ao processar o comentário: {e}")
-                continue
-        
+                        comment_html = comment.get_attribute("outerHTML")
+                        processed_text = replace_emojis(comment_text)
+                        result = sentiment_analysis(processed_text)[0]
 
-        try:
-            with open('instagram_comments.json', 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            existing_data = []
+                        post_data.append({
+                            "comentário": comment_text,
+                            "html": comment_html,
+                            "perfil": nome,
+                            "likes": numero_de_curtida,
+                            "sentimento": {
+                                "label": result['label'],
+                                "score": result['score']
+                            },
+                            "data_recolhimento": datetime.datetime.now().isoformat()
+                        })
+                except Exception as e:
+                    print(f"Erro ao processar o comentário: {e}")
+                    continue
+            
 
-        existing_data.extend(post_data)
+            try:
+                with open('instagram_comments.json', 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                existing_data = []
 
+            existing_data.extend(post_data)
+            self.driver.execute_script("arguments[0].scrollTop += 500", scrollable_div)
+            sleep(random.randint(1,6))
+            
         with open('instagram_comments_2.json', 'w', encoding='utf-8') as f:
             json.dump(existing_data, f, indent=4, ensure_ascii=False)
 
@@ -139,6 +141,7 @@ if __name__ == "__main__":
 
     sql_create_table = """
     CREATE TABLE IF NOT EXISTS public.instagram_analise_nl (
+        url TEXT NOT NOLL
         html TEXT PRIMARY KEY,
         sentimento TEXT NOT NULL,
         comentario TEXT NOT NULL,
@@ -150,8 +153,8 @@ if __name__ == "__main__":
     conexao_banco.criar_drop_db(sql_create_table)
 
     sql = """
-    INSERT INTO public.instagram_analise_nl (html, sentimento, comentario, perfil, likes, data_recolhimento)
-    VALUES (%s, %s, %s, %s, %s, %s)
+    INSERT INTO public.instagram_analise_nl (url, html, sentimento, comentario, perfil, likes, data_recolhimento)
+    VALUES (%s,%s, %s, %s, %s, %s, %s)
     ON CONFLICT (html) DO NOTHING;
     """
 
@@ -159,6 +162,7 @@ if __name__ == "__main__":
         sentimento_dict = df['sentimento'][i]
         sentimento_str = f"sentimento: {sentimento_dict}".replace("'", "")
         valores = (
+            post_url,
             df['html'][i],
             sentimento_str,
             df['comentário'][i],

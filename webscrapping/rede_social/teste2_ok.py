@@ -51,7 +51,7 @@ class Instagram:
         # Acessando uma publicação específica
         self.driver.get(post_url)
         sleep(3)
-
+        self.driver.execute_script(f"document.body.style.zoom='75%'")
         # Carregando mais comentários (se houver)
         while True:
             try:
