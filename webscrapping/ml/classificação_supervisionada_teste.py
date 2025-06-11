@@ -1,0 +1,152 @@
+import pandas as pd
+import re
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.preprocessing import StandardScaler
+from imblearn.over_sampling import SMOTE
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from webscrapping.banco.banco import Banco
+
+
+# ✅ Funções auxiliares
+def extrair_score(sentimento):
+    try:
+        if pd.isnull(sentimento):
+            return None
+        sentimento = str(sentimento).replace('\n', ' ').strip()
+        resultado = re.search(r'score:\s?([0-9]*\.?[0-9]+)', sentimento)
+        if resultado:
+            return float(resultado.group(1))
+        else:
+            return None
+    except:
+        return None
+
+
+def extrair_label(sentimento):
+    try:
+        if pd.isnull(sentimento):
+            return None
+        sentimento = str(sentimento).replace('\n', ' ').strip()
+        resultado = re.search(r'label:\s?(\w+)', sentimento)
+        if resultado:
+            return resultado.group(1)
+        else:
+            return None
+    except:
+        return None
+
+
+# ✅ Pipeline de treino
+if __name__ == "__main__":
+    conexao_banco = Banco()
+
+    try:
+        query = """
+            SELECT 
+                c.url,
+                c.perfil as comentador,
+                c.comentario,
+                c.likes AS likes ,
+                c.sentimento,
+                c.data_recolhimento,
+                p.likes AS likes_pub,
+                p.perfil as publicador
+            FROM public.instagram_comentario AS c
+            INNER JOIN public.instagram_publicacao AS p
+                ON c.url = p.url
+            where p.perfil= 'eduardopaes';
+        """
+        conexao = conexao_banco.conecta_banco(conexao_banco.database)
+        df = pd.read_sql_query(query, conexao)
+        conexao.close()
+
+    except Exception as e:
+        print(f"Erro na leitura: {e}")
+
+    if df is not None and not df.empty:
+        # ✅ Carregar modelo e scaler
+        modelo = joblib.load('modelo_engajamento.pkl')
+        scaler = joblib.load('scaler.pkl')
+        
+        df['sentimento_score'] = df['sentimento'].apply(extrair_score)
+        df['sentimento_label'] = df['sentimento'].apply(extrair_label)
+        df['sentimento_invertido'] = 1 - df['sentimento_score']
+        df = df.dropna(subset=['sentimento_invertido', 'likes_pub'])
+
+        media_likes = df['likes'].mean()
+        df['engajamento_alto'] = (df['likes'] >= media_likes).astype(int)
+
+        # ✅ Selecionar os mesmos dados para teste
+        X = df[['likes_pub', 'sentimento_invertido']]
+
+        # ✅ Escalar usando o scaler treinado
+        X_scaled = scaler.transform(X)
+
+        # ✅ Fazer previsões no DataFrame inteiro
+        predicoes = modelo.predict(X_scaled)
+        probs = modelo.predict_proba(X_scaled)
+
+        # ✅ Adicionando os resultados no DataFrame
+        df['predicao'] = predicoes
+        df['prob_baixo'], df['prob_alto'] = probs[:, 0], probs[:, 1]
+        df['predicao_texto'] = df['predicao'].apply(lambda x: 'Alto Engajamento' if x == 1 else 'Baixo Engajamento')
+
+        # ✅ Mostrar resultados
+        print(df[['comentario', 'likes', 'likes_pub', 'sentimento_invertido', 'predicao_texto', 'prob_baixo', 'prob_alto']])
+
+        # ✅ Salvar como CSV se quiser
+        df.to_csv('resultado_completo.csv', index=False)
+        print("\nResultado salvo em 'resultado_completo.csv'")
+        
+        
+        # Criar a tabela automaticamente com base nas colunas do DataFrame
+        colunas = df.columns
+        tipos_sql = []
+
+        # Mapeando tipos pandas → SQL
+        for col in df.dtypes:
+            if pd.api.types.is_integer_dtype(col):
+                tipos_sql.append("INTEGER")
+            elif pd.api.types.is_float_dtype(col):
+                tipos_sql.append("FLOAT")
+            elif pd.api.types.is_bool_dtype(col):
+                tipos_sql.append("BOOLEAN")
+            else:
+                tipos_sql.append("TEXT")
+
+        # Criar comando SQL para criar tabela
+        conexao_banco = Banco()
+        conexao = conexao_banco.conecta_banco(conexao_banco.database)
+        # Nome da tabela
+        nome_tabela = 'classificação_supervisionada'
+
+        # Lista de colunas na tabela e suas correspondências no DataFrame
+        colunas_tabela = [
+            'url', 'perfil', 'comentario', 'likes', 'sentimento',
+            'data_recolhimento', 'likes_pub', 'sentimento_score',
+            'sentimento_label', 'sentimento_invertido', 'engajamento_alto'
+        ]
+
+        colunas_df = [
+            'url', 'comentador', 'comentario', 'likes', 'sentimento',
+            'data_recolhimento', 'likes_pub', 'sentimento_score',
+            'sentimento_label', 'sentimento_invertido', 'engajamento_alto'
+        ]
+
+        # Inserção
+        for _, row in df.iterrows():
+            valores = tuple(row[col] for col in colunas_df)
+            placeholders = ', '.join(['%s'] * len(valores))
+            sql_insert = f'''
+                INSERT INTO public."{nome_tabela}" ({', '.join(colunas_tabela)})
+                VALUES ({placeholders});
+            '''
+            conexao_banco.inserir_db(sql_insert, valores)
+
+    else:
+        print("Nenhum dado encontrado na consulta.")

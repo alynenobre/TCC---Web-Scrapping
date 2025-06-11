@@ -22,32 +22,7 @@
         },
         {
             "name": "INSTAGRAM V2",
-            "module": "webscrapping.rede_social.testes",
-            "args": [],
-            "request": "launch",
-            "type": "debugpy",
-            "justMyCode": true
-        },
-        {
-            "name": "AMAZON MERCADOLIVRE",
-            "module": "webscrapping.marketing_place",
-            "args": [],
-            "request": "launch",
-            "type": "debugpy",
-            "justMyCode": true
-        },
-        {
-            "name": "INSTAGRAM V3",
-            "module": "webscrapping.rede_social.teste2",
-            "args": [],
-            "request": "launch",
-            "type": "debugpy",
-            "justMyCode": true
-        },
-
-        {
-            "name": "BUSCA POST INSTAGRAM",
-            "module": "busca",
+            "module": "webscrapping.rede_social.Instagram_v2",
             "args": [],
             "request": "launch",
             "type": "debugpy",
@@ -61,6 +36,65 @@
             "type": "debugpy",
             "justMyCode": true
         }
+        ,
+        {
+            "name": "ML",
+            "module": "webscrapping.ml.machine_learning",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+        {
+            "name": "ML TESTE",
+            "module": "webscrapping.ml.machine_learning_teste",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+        {
+            "name": "CLASSIFICAÇÃO SUPERVISIONADA",
+            "module": "webscrapping.ml.classificação_supervisionada_traning",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+        {
+            "name": "CLASSIFICAÇÃO SUPERVISIONADA TESTE",
+            "module": "webscrapping.ml.classificação_supervisionada_teste",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+        {
+            "name": "KMEANS",
+            "module": "webscrapping.ml.KMeans",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+        {
+            "name": "KMEANS TESTE",
+            "module": "webscrapping.ml.KMeans_teste",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        }
+        ,
+        {
+            "name": "redes complexa - Rede de palavras",
+            "module": "webscrapping.ml.Rede_de_palavras",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        }
+
     ]
 
 }
