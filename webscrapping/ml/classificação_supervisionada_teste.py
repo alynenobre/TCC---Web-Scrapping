@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     try:
         query = """
-            SELECT 
+            SELECT DISTINCT
                 c.url,
                 c.perfil as comentador,
                 c.comentario,

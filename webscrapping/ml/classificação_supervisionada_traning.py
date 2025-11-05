@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     try:
         query = """
-            SELECT 
+            SELECT distinct
                 c.url,
                 c.perfil,
                 c.comentario,
@@ -57,7 +57,8 @@ if __name__ == "__main__":
                 p.likes AS likes_pub 
             FROM public.instagram_comentario AS c
             INNER JOIN public.instagram_publicacao AS p
-                ON c.url = p.url;
+                ON c.url = p.url
+            where p.perfil= 'lulaoficial';
         """
         conexao = conexao_banco.conecta_banco(conexao_banco.database)
         df = pd.read_sql_query(query, conexao)

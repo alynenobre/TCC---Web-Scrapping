@@ -14,10 +14,10 @@ nltk.download('stopwords')
 
 # Consulta no banco para pegar os comentários diretamente
 query = """
-    SELECT c.comentario, c.likes
+    SELECT DISTINCT c.comentario, c.likes
     FROM instagram_comentario c
     INNER JOIN public.instagram_publicacao p ON c.url = p.url
-    WHERE p.perfil = 'lulaoficial'
+    WHERE p.perfil = 'eduardopaes'
     GROUP BY c.html, c.comentario
 	order by c.likes desc
     LIMIT 30;
@@ -83,7 +83,7 @@ nx.draw_networkx_edges(G, pos, alpha=0.2)
 nx.draw_networkx_labels(G, pos, font_size=10)
 
 # Finalização
-plt.title("Rede de Coocorrência de Palavras – Comentários @lulaoficial", fontsize=16)
+plt.title("Rede de Coocorrência de Palavras – Comentários @eduardopaes", fontsize=16)
 plt.axis('off')
 plt.tight_layout()
 plt.show()

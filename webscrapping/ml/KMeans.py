@@ -38,7 +38,7 @@ if __name__ == "__main__":
     
     try:
         query = """
-            SELECT 
+            SELECT distinct
                 c.url,
                 c.perfil,
                 c.comentario,
@@ -48,7 +48,8 @@ if __name__ == "__main__":
                 p.likes AS likes_publicacao
             FROM public.instagram_comentario AS c
             INNER JOIN public.instagram_publicacao AS p
-                ON c.url = p.url;
+                ON c.url = p.url
+            where p.perfil= 'lulaoficial';;
             """
         # Abrindo a conexão corretamente
         conexao = conexao_banco.conecta_banco(conexao_banco.database)
@@ -59,49 +60,7 @@ if __name__ == "__main__":
         print(f"Erro na leitura: {e}")
 
 
-    if df is not None and not df.empty:
-        '''print("Dados lidos com sucesso!")
-
-        # 🎯 Pré-processamento dos dados
-        # Extrair o score do sentimento (supondo que o campo sentimento é um JSON/texto do tipo '{"label": "NEGATIVE", "score": 0.88}')
-
-        df['sentimento_score'] = df['sentimento'].apply(extrair_score)
-        df['sentimento_label'] = df['sentimento'].apply(extrair_label)
-        df['sentimento_invertido'] = 1 - df['sentimento_score']
-
-        # Seleção das features
-        features = df[['likes', 'sentimento_invertido']]
-
-        # Normalização
-        scaler = StandardScaler()
-        scaled_features = scaler.fit_transform(features)
-
-        # Clusterização
-        kmeans = KMeans(n_clusters=2, random_state=42, n_init=10)
-        df['cluster'] = kmeans.fit_predict(scaled_features)
-
-        # PCA para visualização
-        pca = PCA(n_components=2)
-        components = pca.fit_transform(scaled_features)
-        df['pca1'] = components[:, 0]
-        df['pca2'] = components[:, 1]
-
-        # 📊 Plot dos clusters
-        plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=df, x="pca1", y="pca2", hue="cluster", style="perfil", s=100)
-        plt.title("Clusterização dos Comentários (KMeans)")
-        plt.xlabel("Componente Principal 1")
-        plt.ylabel("Componente Principal 2")
-        plt.legend(title="Cluster")
-        plt.grid(True)
-        plt.show()
-
-        # 🗂️ Ver os dados clusterizados
-        print(df[['comentario', 'likes', 'sentimento_invertido', 'cluster']])
-
-    else:
-        print("Não foram encontrados dados na tabela.")'''
-        
+    if df is not None and not df.empty:     
         
         # 🎯 Pré-processamento
         df['sentimento_score'] = df['sentimento'].apply(extrair_score)

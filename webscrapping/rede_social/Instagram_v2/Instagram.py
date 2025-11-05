@@ -100,13 +100,18 @@ class Instagram:
         resultado = re.search(r'([\d\.,]+)\s+curtidas', texto)
         if resultado:
             return int(resultado.group(1).replace('.', '').replace(',', ''))
-        return 0
+        return 0    
     
     def get_like_geral(self, list_like, perfil_post):
+        max_likes = 0
         for item in list_like:
-            if item['nome'] == perfil_post:
-                return item['likes']
-        return 0
+            nome = item['nome'].lower()
+            likes = item['likes']
+            # pega o maior número de likes
+            if isinstance(likes, int) and likes > max_likes:
+                max_likes = likes
+        return max_likes
+    
     
     def collect_comments(self, post_url: str, user: str):
         self.driver.get(post_url)
@@ -123,9 +128,40 @@ class Instagram:
         post_data = []
         list_like = []  # Armazena o comentário atual antes de vir o like
         existing_data = []
-        scrollable_div = self.driver.find_element(By.XPATH, '//ul//span')
+        scrollable_div = self.driver.find_element(
+            By.XPATH,
+            "//div[contains(@class, 'x4h1yfo')]//div[contains(@class, 'x1c4vz4f')]"
+        )
+        # 2) Rolar o painel até carregar tudo (ou quase)
+        # estratégia: rolar até o último bloco de comentário repetidas vezes
+        stalls = 0
+        prev = 0
+        while True:
+            boxes = self.driver.find_elements(
+                By.XPATH,
+                "//div[.//a[contains(@class,'_a6hd')] and .//span[contains(@class,'x1lliihq')]]"
+            )
+            # rola até o último comentário visível
+            if boxes:
+                self.driver.execute_script("arguments[0].scrollIntoView({block:'end'});", boxes[-1])
+                sleep(1.2)
+
+            curr = len(boxes)
+            if curr == prev:
+                stalls += 1
+            else:
+                stalls = 0
+            prev = curr
+
+            if stalls >= 3:   # 3 iterações sem aumentar = chegou no fim
+                break
+
         for _ in range(1):  # ajuste quantas vezes quiser rolar
-            comentarios_divs = self.driver.find_elements(By.XPATH, '//ul//span')
+            # cada comentário
+            comentarios_divs = self.driver.find_elements(
+                By.XPATH,
+                "//div[.//a[contains(@class,'_a6hd')] and .//span[contains(@class,'x1lliihq')]]"
+            )
 
             # Iterando sobre os comentários capturados
             c = len(comentarios_divs)
@@ -138,7 +174,7 @@ class Instagram:
                     c=c-1
                     print(f"faltam {c}")
                     try:
-                        nome = comment.find_element(By.XPATH, ".//a[starts-with(@href, '/') and not(contains(@href, '/p/'))]").text
+                        nome = comment.find_element(By.XPATH, ".//a[contains(@class,'_a6hd')]").text
                     except:
                         pass
                     if nome and comment_text and nome != comment_text:
@@ -191,12 +227,22 @@ class Instagram:
                         comment_html = comment.get_attribute("outerHTML")
                         # ✅ Limpeza do texto bruto
                         comment_text_aux = comment_text.strip()
+                        
+                        
+                        
+                        # Remove nome de perfil no início (sequência sem espaço, seguido de espaço)
+                        comment_text_aux = re.sub(rf"^{nome}\b", "", comment_text_aux)
+                        # Remove '5 sem', '2 sem', etc.
+                        comment_text_aux = re.sub(r"\b\d+\s*sem\b", "", comment_text_aux, flags=re.IGNORECASE)
                         # Remove '5 d', '1 d', '2 d', etc.
                         comment_text_aux = re.sub(r"\b\d+\s*d\b", "", comment_text_aux, flags=re.IGNORECASE)
+                        comment_text_aux = re.sub(r"\b\sem", "", comment_text_aux, flags=re.IGNORECASE)
                         comment_text_aux = re.sub(r"\d+\scurtidas", "", comment_text_aux, flags=re.IGNORECASE)
                         comment_text_aux = re.sub(r"Responder" , "", comment_text_aux, flags=re.IGNORECASE)
                         comment_text_aux = re.sub(r"Ver tradução", "", comment_text_aux, flags=re.IGNORECASE)
                         comment_text_aux = re.sub(r"Ver respostas.*", "", comment_text_aux, flags=re.IGNORECASE)
+                        comment_text_aux = re.sub(r"Seguindo", "", comment_text_aux, flags=re.IGNORECASE)
+                        comment_text_aux = re.sub(r"Áudio original", "", comment_text_aux, flags=re.IGNORECASE)
                         comment_text_aux = re.sub(r"\s{2,}", " ", comment_text_aux)  # Remove espaços duplos
                         comment_text_aux = comment_text_aux.strip()
 

@@ -21,8 +21,16 @@
             "justMyCode": true
         },
         {
-            "name": "INSTAGRAM V2",
-            "module": "webscrapping.rede_social.Instagram_v2",
+            "name": "INSTAGRAM Pubi",
+            "module": "webscrapping.rede_social.publicacao",
+            "args": [],
+            "request": "launch",
+            "type": "debugpy",
+            "justMyCode": true
+        },
+        {
+            "name": "INSTAGRAM reels",
+            "module": "webscrapping.rede_social.reels",
             "args": [],
             "request": "launch",
             "type": "debugpy",
