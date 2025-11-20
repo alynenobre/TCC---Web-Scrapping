@@ -1,0 +1,102 @@
+nuvem de palavras do eduardo paes
+
+SQL:
+
+SELECT
+  lower(word) AS name,
+  count(*) AS value
+FROM (
+  SELECT unnest(string_to_array(regexp_replace(c.comentario, '[^\w\s]', '', 'g'), ' ')) AS word,
+  c.html
+  FROM instagram_comentario as c
+	INNER JOIN public.instagram_publicacao AS p
+	ON c.url = p.url
+  where p.perfil = 'eduardopaes'
+  GROUP BY c.html, c.comentario
+  
+) AS palavras
+WHERE 
+  length(word) > 3 AND
+  word !~ '^@' AND                   -- Exclui menções (@usuario)
+  word !~ '^\d' AND                  -- Exclui palavras começando com números
+  lower(word) NOT IN (
+    'curtidas'
+  )
+GROUP BY lower(word)
+ORDER BY count(*) DESC
+LIMIT 100
+;
+
+  
+  
+CODIGO DO BUSINESS CHARTS GRAFANA:
+
+// 1. Obtenção dos dados da query
+let words = [];
+let counts = [];
+
+// Verifica todas as possíveis variáveis de dados
+const dataSource = window.__data || window.data || context.panel.data;
+
+if (dataSource?.series?.length > 0) {
+  const series = dataSource.series[0];
+
+  // Encontra os campos automaticamente (com fallback)
+  const nameField = series.fields.find(f =>
+    f.name === "name" || f.name === "word" || f.name === "title" || f.type === "string"
+  );
+
+  const valueField = series.fields.find(f =>
+    f.name === "value" || f.name === "count" || f.type === "number"
+  );
+
+  if (nameField && valueField) {
+    words = nameField.values.toArray();
+    counts = valueField.values.toArray();
+  } else {
+    console.error("Campos não encontrados. Campos disponíveis:",
+      series.fields.map(f => `${f.name} (${f.type})`));
+  }
+} else {
+  console.error("Nenhum dado recebido. Estrutura completa:", dataSource);
+}
+
+// 2. Preparação dos dados para o word cloud
+const wordData = words.map((word, index) => ({
+  name: word,
+  value: counts[index] || 1 // Fallback para valor mínimo
+}));
+
+// 3. Configuração do Word Cloud (com seus parâmetros originais)
+return {
+  tooltip: {
+    show: true,
+    formatter: params => `${params.name}: ${params.value} ocorrências`
+  },
+  series: [{
+    type: 'wordCloud',
+    data: wordData,
+    gridSize: 2,
+    sizeRange: [12, 50],
+    rotationRange: [-90, 90],
+    shape: 'pentagon',
+    width: '100%',
+    height: '100%',
+    drawOutOfBound: true,
+    textStyle: {
+      color: function () {
+        return 'rgb(' + [
+          Math.round(Math.random() * 160),
+          Math.round(Math.random() * 160),
+          Math.round(Math.random() * 160)
+        ].join(',') + ')';
+      }
+    },
+    emphasis: {
+      textStyle: {
+        shadowBlur: 10,
+        shadowColor: '#333'
+      }
+    }
+  }]
+};

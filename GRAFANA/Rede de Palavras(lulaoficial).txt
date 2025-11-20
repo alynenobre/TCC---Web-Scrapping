@@ -1,0 +1,312 @@
+nuvem de palavras do lulaoficial
+
+SQL:
+
+SELECT
+  lower(word) AS name,
+  count(*) AS value
+-- ARESTAS: source, target, weight (peso da coocorrência)
+WITH base AS (
+  SELECT
+    c.url,
+    REGEXP_SPLIT_TO_TABLE(
+      LOWER(c.comentario),
+      '\s+'
+    ) AS token
+  FROM public.instagram_comentario c
+  JOIN public.instagram_publicacao p ON p.url = c.url
+  WHERE p.perfil = 'lulaoficial'       -- <- troque por variável do Grafana, ex.: $__var:perfil
+),
+tokens AS (
+  SELECT DISTINCT url, token
+  FROM base
+  WHERE token <> '' AND char_length(token) > 3
+    AND token !~ '^\d'           -- não começa com número
+    AND token NOT IN ('curtidas') -- stopwords simples (adicione mais)
+),
+pairs AS (
+  SELECT
+    LEAST(a.token, b.token) AS source,
+    GREATEST(a.token, b.token) AS target
+  FROM tokens a
+  JOIN tokens b ON a.url = b.url AND a.token < b.token
+)
+SELECT source, target, COUNT(*) AS weight
+FROM pairs
+GROUP BY source, target
+HAVING COUNT(*) >= 2            -- limiar mínimo de coocorrência (ajuste)
+ORDER BY weight DESC
+LIMIT 2000;
+
+
+-- NÓS: id/title/freq (value)
+WITH base AS (
+  SELECT
+    c.url,
+    REGEXP_SPLIT_TO_TABLE(
+      LOWER(c.comentario),
+      '\s+'
+    ) AS token
+  FROM public.instagram_comentario c
+  JOIN public.instagram_publicacao p ON p.url = c.url
+  WHERE p.perfil = 'lulaoficial'       -- <- variável no Grafana se quiser
+),
+tokens AS (
+  SELECT DISTINCT url, token
+  FROM base
+  WHERE token <> '' AND char_length(token) > 3
+    AND token !~ '^\d'
+    AND token NOT IN ('curtidas')
+)
+SELECT
+  token              AS id,
+  token              AS title,
+  COUNT(DISTINCT url) AS freq
+FROM tokens
+GROUP BY token
+HAVING COUNT(DISTINCT url) >= 2        -- limiar p/ reduzir ruído
+ORDER BY freq DESC
+LIMIT 300;
+  
+  
+CODIGO DO BUSINESS CHARTS GRAFANA:
+// === 1) Coleta de dados do Grafana (compatível com o seu padrão) ===
+const dataSource = window.__data || window.data || context?.panel?.data;
+if (!dataSource?.series?.length) {
+  console.error("Nenhuma série recebida.", dataSource);
+  return { title: { text: "Rede de Palavras (sem dados)" } };
+}
+
+// Ajuda: heurísticas para identificar séries de NÓS e de ARESTAS
+function isNodeSeries(series) {
+  const names = series.fields.map(f => f.name.toLowerCase());
+  // esperamos algo tipo: id/title/name e freq/mainstat/value...
+  return (
+    names.includes("id") || names.includes("word") || names.includes("title") || names.includes("name")
+  ) && (
+      names.includes("freq") || names.includes("mainstat") || names.includes("value") || series.fields.some(f => f.type === "number")
+    );
+}
+
+function isEdgeSeries(series) {
+  const names = series.fields.map(f => f.name.toLowerCase());
+  // esperamos: source, target e (opcional) weight/mainstat/value
+  return (
+    names.includes("source") && names.includes("target")
+  );
+}
+
+// Pega primeira série de nós e primeira série de arestas encontradas
+let nodeSeries = null;
+let edgeSeries = null;
+for (const s of dataSource.series) {
+  if (!nodeSeries && isNodeSeries(s)) nodeSeries = s;
+  if (!edgeSeries && isEdgeSeries(s)) edgeSeries = s;
+}
+
+// Fallback: se só veio uma série com source/target/weight, criamos nós a partir das pontas
+if (!edgeSeries && nodeSeries) {
+  console.warn("Não encontrei série de arestas; vou tentar construir arestas a partir da série de nós (se existir).");
+}
+if (!nodeSeries && edgeSeries) {
+  console.warn("Não encontrei série de nós; vou construir nós a partir de source/target.");
+}
+
+// === 2) Extrair campos úteis ===
+function getField(series, candidates, fallbackType = null) {
+  // Tenta por nome, depois pelo tipo
+  const byName = series.fields.find(f => candidates.map(c => c.toLowerCase()).includes(f.name.toLowerCase()));
+  if (byName) return byName.values?.toArray() ?? [];
+  if (fallbackType) {
+    const byType = series.fields.find(f => f.type === fallbackType);
+    if (byType) return byType.values?.toArray() ?? [];
+  }
+  return [];
+}
+
+// --- NÓS ---
+let nodes = [];
+if (nodeSeries) {
+  const idArr = getField(nodeSeries, ["id", "word", "name", "title"], "string");
+  const labelArr = getField(nodeSeries, ["title", "name", "word", "id"], "string");
+  const freqArr = getField(nodeSeries, ["freq", "mainstat", "value", "count"], "number");
+  const secArr = getField(nodeSeries, ["secondarystat", "degree", "degree_weight"], "number");
+
+  for (let i = 0; i < (idArr?.length || 0); i++) {
+    const id = String(idArr[i]);
+    nodes.push({
+      id,
+      name: String(labelArr?.[i] ?? id),
+      value: Number(freqArr?.[i] ?? 1),
+      // guardamos degree (se vier) em um campo para visualMap opcional
+      degree: Number(secArr?.[i] ?? 0)
+    });
+  }
+}
+
+// --- ARESTAS ---
+let links = [];
+if (edgeSeries) {
+  const srcArr = getField(edgeSeries, ["source"], "string");
+  const tgtArr = getField(edgeSeries, ["target"], "string");
+  const wArr = getField(edgeSeries, ["weight", "mainstat", "value", "peso", "count"], "number");
+  const idArr = getField(edgeSeries, ["id"], "string");
+
+  for (let i = 0; i < (srcArr?.length || 0); i++) {
+    const s = String(srcArr[i]);
+    const t = String(tgtArr[i]);
+    if (!s || !t) continue;
+    links.push({
+      source: s, target: t,
+      value: Number(wArr?.[i] ?? 1),
+      id: String(idArr?.[i] ?? `${s}→${t}`)
+    });
+  }
+}
+
+// Fallback: se não veio série de nós, crie nós únicos a partir das pontas das arestas
+if (!nodes.length && links.length) {
+  const setIds = new Set();
+  links.forEach(l => { setIds.add(l.source); setIds.add(l.target); });
+  nodes = Array.from(setIds).map(id => ({ id, name: id, value: 1, degree: 0 }));
+}
+
+// Faça um map id->node para garantir que todos os nodes referenciados apareçam
+const nodeMap = new Map(nodes.map(n => [String(n.id), n]));
+links.forEach(l => {
+  if (!nodeMap.has(String(l.source))) {
+    const id = String(l.source);
+    nodeMap.set(id, { id, name: id, value: 1, degree: 0 });
+  }
+  if (!nodeMap.has(String(l.target))) {
+    const id = String(l.target);
+    nodeMap.set(id, { id, name: id, value: 1, degree: 0 });
+  }
+});
+nodes = Array.from(nodeMap.values());
+
+// === 3) Escalas e aparência ===
+const maxFreq = nodes.reduce((m, n) => Math.max(m, n.value || 1), 1);
+const minFreq = nodes.reduce((m, n) => Math.min(m, n.value || 1), maxFreq);
+function scaleNodeSize(v) {
+  // escala suave 12..48 baseado em value (freq)
+  const a = 12, b = 48;
+  if (maxFreq === minFreq) return (a + b) / 2;
+  return a + (b - a) * ((v - minFreq) / (maxFreq - minFreq));
+}
+
+// === 4) Monta os dados finais para o ECharts ===
+const graphNodes = nodes.map(n => {
+  const v = Number(n.value || 0);
+
+  // regra de cor (troque pelos hex que quiser ou deixe uma cor fixa)
+  const nodeColor = v >= 10 ? '#d62728' : '#2ca02c'; // vermelho/verde pelo freq
+  // const nodeColor = '#4e79a7'; // <- exemplo de cor fixa para todos
+
+  return {
+    id: String(n.id),
+    name: n.name,
+    value: v,
+    symbolSize: scaleNodeSize(v),
+    itemStyle: {
+      color: nodeColor,
+      borderColor: '#222',   // opcional: contorno
+      borderWidth: 0.8
+    },
+    emphasis: {
+      itemStyle: { color: nodeColor } // mantém a cor ao destacar
+    }
+  };
+});
+
+
+const graphLinks = links.map(e => ({
+  source: String(e.source),
+  target: String(e.target),
+  value: e.value
+}));
+
+// === 5) Opção do ECharts (force-directed) ===
+return {
+  tooltip: {
+    trigger: 'item',
+    formatter: (params) => {
+      if (params.dataType === 'edge') {
+        return `${params.data.source} ⇄ ${params.data.target}<br/>peso: ${params.data.value}`;
+      } else {
+        return `${params.data.name}<br/>freq: ${params.data.value}`;
+      }
+    }
+  },
+  legend: { show: false },
+  animationDuration: 800,
+  series: [{
+    type: 'graph',
+    layout: 'force',
+    roam: true,
+    draggable: true,
+    data: graphNodes,
+    links: graphLinks,
+    itemStyle: { color: '#4e79a7' }, // <<< AQUI
+    lineStyle: { width: 1, opacity: 0.3 },
+    force: {
+      // ajuste fino conforme densidade: repulsion maior = grafo mais "aberto"
+      repulsion: 200,
+      gravity: 0.08,
+      edgeLength: [50, 150]
+    },
+    label: {
+      show: true,
+      position: 'right',
+      fontSize: 11,
+      formatter: '{b}'
+    },
+    lineStyle: {
+      width: 1,
+      opacity: 0.3
+    },
+    emphasis: {
+      focus: 'adjacency',
+      lineStyle: { width: 2, opacity: 0.8 }
+    }
+  }],
+  graphic: [{
+    type: 'group',
+    right: 12,                 // posição no canto superior-direito
+    top: 12,
+    draggable: false,
+    children: [
+      {
+        type: 'rect',
+        shape: { width: 320, height: 72, r: 8 },
+        style: {
+          fill: (context?.theme?.isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.9)'),
+          stroke: (context?.theme?.isDark ? '#999' : '#666'),
+          lineWidth: 1
+        }
+      },
+      {
+        type: 'text',
+        style: {
+          x: 10, y: 15,
+          text:
+            'Legenda\n' +
+            '• freq: nº de comentários distintos em que a palavra aparece\n' +
+            '• peso: nº de comentários onde o par de palavras coocorre',
+          fontSize: 10,
+          lineHeight: 15,
+          fill: (context?.theme?.isDark ? '#eee' : '#222'),
+          fontFamily: 'Inter, Roboto, Helvetica, Arial, sans-serif'
+        }
+      }
+    ]
+  }],
+  // (opcional) mapa de cor pelo grau/valor:
+  visualMap: [{
+    show: false,
+    min: minFreq,
+    max: maxFreq,
+    dimension: 2, // value
+    inRange: { colorLightness: [0.35, 0.85] }
+  }]
+};

@@ -1,0 +1,126 @@
+hanker dos comentarios do erfil do lula
+
+SQL:
+
+SELECT
+  comentario,
+  likes
+FROM(SELECT DISTINCT ON (c.url)
+  c.comentario,
+  c.likes
+FROM instagram_comentario as c
+	INNER JOIN public.instagram_publicacao AS p
+	ON c.url = p.url
+where p.perfil = 'lulaoficial'
+and c.likes <> p.likes
+GROUP BY
+  c.comentario, c.likes, c.url)
+  
+where comentario not like '%curtidas%'
+ORDER BY
+  likes desc ;
+  
+  
+CODIGO DO BUSINESS CHARTS GRAFANA:
+
+// Código para o painel de barras
+const dataSource = window.__data || window.data || context.panel.data;
+
+if (!dataSource?.series?.[0]?.fields) {
+  return {
+    title: {
+      text: 'Dados não carregados',
+      subtext: 'Verifique sua conexão com a fonte de dados',
+      left: 'center',
+      top: 'center'
+    }
+  };
+}
+
+const fields = dataSource.series[0].fields;
+const commentField = fields.find(f => f.name === "comentario");
+const likesField = fields.find(f => f.name === "likes");
+
+if (!commentField || !likesField) {
+  return {
+    title: {
+      text: 'Estrutura incorreta',
+      subtext: `Campos necessários não encontrados. Campos disponíveis: ${fields.map(f => f.name).join(', ')}`,
+      left: 'center',
+      top: 'center'
+    }
+  };
+}
+
+const comments = commentField.values.toArray();
+const likes = likesField.values.toArray();
+
+// Pegar os top 15 comentários
+const topCount = 15;
+const topComments = comments.slice(0, topCount);
+const topLikes = likes.slice(0, topCount);
+
+return {
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: { type: 'shadow' },
+    formatter: params => {
+      const fullComment = comments[params[0].dataIndex];
+      return `
+        <strong>${params[0].value} likes</strong><br/>
+        <div style="max-width:300px;word-wrap:break-word;">
+          ${fullComment.replace(/\n/g, '<br/>')}
+        </div>
+      `;
+    }
+  },
+  grid: {
+    left: '25%',
+    right: '5%',
+    bottom: '5%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'value',
+    name: 'Número de Likes',
+    nameLocation: 'middle',
+    nameGap: 25
+  },
+  yAxis: {
+    type: 'category',
+    data: topComments.map(c =>
+      c.length > 50 ? c.substring(0, 50) + '...' : c
+    ),
+    axisLabel: {
+      interval: 0,
+      rotate: 0,
+      fontSize: 12,
+      formatter: value => value.replace(/\n/g, ' ') // Remove quebras de linha
+    }
+  },
+  series: [{
+    name: 'Likes',
+    type: 'bar',
+    data: topLikes,
+    itemStyle: {
+      color: function (params) {
+        // Gradiente de vermelho baseado no número de likes
+        const intensity = Math.min(params.value / Math.max(...topLikes), 1);
+        return `rgb(${Math.floor(100 + 155 * intensity)}, ${Math.floor(50 + 50 * intensity)}, ${Math.floor(50 + 50 * intensity)})`;
+      }
+    },
+    label: {
+      show: true,
+      position: 'right',
+      formatter: '{c}'
+    }
+  }],
+  title: {
+    text: `Top ${topCount} Comentários Mais Curtidos`,
+    left: 'center',
+    textStyle: {
+      fontSize: 16,
+      fontWeight: 'bold'
+    }
+  }
+};

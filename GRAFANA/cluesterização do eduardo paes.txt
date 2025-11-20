@@ -1,0 +1,115 @@
+cluesterização do eduardo paes
+
+SQL:
+
+SELECT comentario,
+  cluster,
+  pca1,
+  pca2
+FROM ( SELECT
+    comentario,
+    cluster,
+    pca1,
+    pca2,
+    ROW_NUMBER() OVER (PARTITION BY k.perfil, k.comentario ORDER BY k.data_recolhimento ASC) AS rn
+  FROM public.kmeans as k
+  INNER JOIN public.instagram_publicacao AS p
+    ON k.url = p.url
+  where p.perfil= 'eduardopaes'
+  )
+where 1=1
+and rn = 1
+GROUP BY
+  comentario,
+  cluster,
+  pca1,
+  pca2;
+
+  
+  
+CODIGO DO BUSINESS CHARTS GRAFANA:
+
+// Acesso seguro aos dados
+const dataSource = window.__data || window.data || context.panel?.data;
+
+if (!dataSource?.series?.[0]?.fields) {
+  return {
+    title: {
+      text: 'Dados não carregados',
+      subtext: 'Verifique se os dados da query estão no formato Table',
+      left: 'center',
+      top: 'center'
+    }
+  };
+}
+
+// Pega os campos
+const fields = dataSource.series[0].fields;
+const comentarioField = fields.find(f => f.name === "comentario");
+const clusterField = fields.find(f => f.name === "cluster");
+const pca1Field = fields.find(f => f.name === "pca1");
+const pca2Field = fields.find(f => f.name === "pca2");
+
+// Validação
+if (!comentarioField || !clusterField || !pca1Field || !pca2Field) {
+  return {
+    title: {
+      text: 'Campos ausentes',
+      subtext: `Esperados: comentario, cluster, pca1, pca2. Encontrados: ${fields.map(f => f.name).join(', ')}`,
+      left: 'center',
+      top: 'center'
+    }
+  };
+}
+
+// Monta a estrutura dos dados
+const data = pca1Field.values.toArray().map((x, i) => ({
+  value: [x, pca2Field.values.get(i)],
+  name: comentarioField.values.get(i),
+  cluster: clusterField.values.get(i)
+}));
+
+// Agrupa por cluster
+const agrupado = {};
+data.forEach(p => {
+  const c = p.cluster;
+  if (!agrupado[c]) agrupado[c] = [];
+  agrupado[c].push(p);
+});
+
+// Prepara as séries para o gráfico
+const seriesData = Object.entries(agrupado).map(([cluster, pontos]) => ({
+  name: `Cluster ${cluster}`,
+  type: 'scatter',
+  data: pontos.map(p => p.value),
+  tooltip: {
+    formatter: function (params) {
+      const ponto = agrupado[cluster][params.dataIndex];
+      return `<strong>${params.seriesName}</strong><br/>${ponto.name}`;
+    }
+  }
+}));
+
+// Retorna a configuração do gráfico
+return {
+  title: {
+    text: 'Dispersão dos Comentários por Cluster (K-Means)',
+    left: 'center',
+    top: 10
+  },
+  tooltip: {
+    trigger: 'item'
+  },
+  legend: {
+    top: 'bottom'
+  },
+  xAxis: {
+    type: 'value',
+    name: 'PCA 1'
+  },
+  yAxis: {
+    type: 'value',
+    name: 'PCA 2'
+  },
+  series: seriesData
+};

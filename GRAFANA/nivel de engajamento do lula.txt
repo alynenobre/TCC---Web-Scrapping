@@ -1,0 +1,126 @@
+nivel de engajamento do lulaoficial
+
+SQL:
+
+SELECT
+  nivel_certeza,
+  engajamento_alto,
+  COUNT(*) AS total
+FROM (
+  SELECT
+    c.url,
+    c.comentario,
+    CASE
+      WHEN c.sentimento_score >= 0.75 THEN 'Positivo'
+      WHEN c.sentimento_score >= 0.5 THEN 'Neutro'
+      ELSE 'Negativo'
+    END AS nivel_certeza,
+    c.engajamento_alto
+  FROM classificação_supervisionada AS c
+  INNER JOIN public.instagram_publicacao AS p
+    ON c.url = p.url
+  WHERE p.perfil = 'lulaoficial'
+  and c.likes <> p.likes
+  GROUP BY c.url, c.comentario, c.sentimento_score, c.engajamento_alto
+) sub
+GROUP BY nivel_certeza, engajamento_alto
+ORDER BY nivel_certeza, engajamento_alto;
+
+
+  
+  
+CODIGO DO BUSINESS CHARTS GRAFANA:
+
+const dataSource = window.__data || window.data || context.panel?.data;
+
+if (!dataSource?.series?.[0]?.fields) {
+  return {
+    title: {
+      text: 'Dados não carregados',
+      subtext: 'Verifique se os dados da query estão no formato Table',
+      left: 'center',
+      top: 'center'
+    }
+  };
+}
+
+// Pega os campos
+const fields = dataSource.series[0].fields;
+const nivelField = fields.find(f => f.name === "nivel_certeza");
+const engajamentoField = fields.find(f => f.name === "engajamento_alto");
+const totalField = fields.find(f => f.name === "total");
+
+if (!nivelField || !engajamentoField || !totalField) {
+  return {
+    title: {
+      text: 'Campos ausentes',
+      subtext: `Esperados: nivel_certeza, engajamento_alto, total. Encontrados: ${fields.map(f => f.name).join(', ')}`,
+      left: 'center',
+      top: 'center'
+    }
+  };
+}
+
+// Monta os dados combinados
+const dados = nivelField.values.toArray().map((nivel, i) => ({
+  nivel,
+  engajamento: engajamentoField.values.get(i),
+  total: totalField.values.get(i)
+}));
+
+// Níveis fixos e ordenados
+const categorias = ['Positivo', 'Neutro', 'Negativo'];
+const baixoEngajamento = [];
+const altoEngajamento = [];
+
+for (const nivel of categorias) {
+  const baixo = dados.find(d => d.nivel === nivel && d.engajamento === 0)?.total || 0;
+  const alto = dados.find(d => d.nivel === nivel && d.engajamento === 1)?.total || 0;
+  baixoEngajamento.push(baixo);
+  altoEngajamento.push(alto);
+}
+
+return {
+  title: {
+    text: 'Engajamento por Sentimento',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: { type: 'shadow' }
+  },
+  legend: {
+    data: ['Baixo engajamento', 'Alto engajamento'],
+    top: 30
+  },
+  grid: {
+    left: '5%',
+    right: '5%',
+    bottom: '10%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'category',
+    data: categorias
+  },
+  yAxis: {
+    type: 'value',
+    name: 'Qtd. de Comentários'
+  },
+  series: [
+    {
+      name: 'Baixo engajamento',
+      type: 'bar',
+      data: baixoEngajamento,
+      itemStyle: { color: '#fa5252' },
+      label: { show: true, position: 'top' }
+    },
+    {
+      name: 'Alto engajamento',
+      type: 'bar',
+      data: altoEngajamento,
+      itemStyle: { color: '#40c057' },
+      label: { show: true, position: 'top' }
+    }
+  ]
+};
