@@ -101,12 +101,28 @@ if __name__ == "__main__":
 
         print("\nRelatório de Classificação:")
         print(classification_report(y_test, y_pred))
+        # Ajusta a fonte da legenda
+        leg = plt.legend(prop={
+            "family": "serif",  # fonte serifada
+            "size": 12
+        })
 
         plt.figure(figsize=(8, 6))
         sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues')
-        plt.title("Matriz de Confusão")
-        plt.xlabel("Predito")
-        plt.ylabel("Real")
+        # Rótulos dos eixos com fonte maior
+        plt.xlabel("Classe prevista", fontsize=14)
+        plt.ylabel("Classe real", fontsize=14)
+
+        # Ticks dos eixos (nomes das classes) com fonte maior
+        plt.xticks(rotation=0, fontsize=12)
+        plt.yticks(rotation=0, fontsize=12)
+
+        # Opcional: título com fonte maior
+        # plt.title("Matriz de Confusão - Random Forest", fontsize=16)
+
+        # Deixar a barra de cores (colorbar) com fonte maior também
+        cbar = plt.gcf().axes[-1]
+        cbar.tick_params(labelsize=12)
         plt.show()
 
         # ✅ Salvar modelo e scaler

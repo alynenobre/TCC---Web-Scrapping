@@ -90,3 +90,7 @@ if __name__ == "__main__":
         
     else:
         print("Não foram encontrados dados na tabela.")
+        
+        
+        
+        
